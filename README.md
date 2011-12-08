@@ -41,5 +41,4 @@ This is more light version missing md5 verifing and signaturing features.
 Credit
 ------
 
-Thanks for Hoopchina.com for sponsor resources to make this library happen.
-
+Thanks to Hoopchina.com for sponsor resources to make this library happen.
