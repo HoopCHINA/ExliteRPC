@@ -1,7 +1,7 @@
 ExliteRPC library
 =================
 
-Extreme light and sweet PHP's RPC library inspired of Objective-C Dirstributed Object (PDO) framework.
+Extreme light and sweet PHP's RPC library inspired by Objective-C Dirstributed Object (PDO) framework.
 
 Server side example
 -------------------
