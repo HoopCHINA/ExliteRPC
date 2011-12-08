@@ -22,6 +22,10 @@ class ExliteRPC {
     $data.= md5($data.$this->salt_, true);
 
     $data = $this->__rpc($data);
+
+    if (empty($data)) {
+      throw new ExliteRPC_ProtocolException('Response payload is empty');
+    }
     
     $xpak = array();
     $pos = 0;
@@ -34,10 +38,10 @@ class ExliteRPC {
     $xpak['md5'] = substr($data, $pos, 8);
     
     if (strncmp(md5(substr($data, 0, $pos).$this->salt_, true), $xpak['md5'], 8)) {
-      throw new ExliteRPC_ProtocolException('Md5::salt verify of result failed');
+      throw new ExliteRPC_ProtocolException('Md5::salt verify of response failed');
     }
     if ($xpak['tim'] != $timestamp+1) {
-      throw new ExliteRPC_ProtocolException('Timestamp verify of result failed');
+      throw new ExliteRPC_ProtocolException('Timestamp verify of response failed');
     }
     
     return @unserialize($xpak['rval']);
@@ -45,7 +49,7 @@ class ExliteRPC {
   
   private function __rpc($data) {
     $matches = parse_url($this->remote_url);
-	
+
     if (isset($matches['host']))
       $host = $matches['host'];
     else {
@@ -77,7 +81,7 @@ class ExliteRPC {
     $data = @stream_get_contents($handle);
 
     // Read failed?
-    if ($data === FALSE || $data === '') {
+    if ($data === FALSE) {
       $mds = stream_get_meta_data($handle);
       if ($mds['timed_out']) {
         throw new ExliteRPC_NetworkException('Timed out reading from '.$this->remote_url);
@@ -114,7 +118,7 @@ class ExliteRPC_Server {
     $data = @stream_get_contents($input);
 
     // Read failed?
-    if ($data === FALSE || $data === '') {
+    if ($data === FALSE) {
       $mds = stream_get_meta_data($input);
       if ($mds['timed_out']) {
         throw new ExliteRPC_NetworkException('Timed out reading from php://input');
@@ -146,7 +150,11 @@ class ExliteRPC_Server {
     }
   }
   
-  private function __stub($data) {    
+  private function __stub($data) {
+    if (empty($data)) {
+      throw new ExliteRPC_ProtocolException('Request payload is empty');
+    }
+
     $xpak = array();
     $pos = 0;
     $xpak['nlen'] = current(unpack('v_', substr($data, $pos, 2)));

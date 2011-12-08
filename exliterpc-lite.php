@@ -13,8 +13,14 @@ class ExliteRPC {
   }
   
   public function __call($name, $arguments) {
-    $data = @serialize(array($name, $arguments));
+    array_unshift($arguments, $name);
+
+    $data = @serialize($arguments);
     $data = $this->__rpc($data);
+
+    if (empty($data)) {
+      throw new ExliteRPC_ProtocolException('Response payload is empty');
+    }
     return @unserialize($data);
   }
   
@@ -52,7 +58,7 @@ class ExliteRPC {
     $data = @stream_get_contents($handle);
 
     // Read failed?
-    if ($data === FALSE || $data === '') {
+    if ($data === FALSE) {
       $mds = stream_get_meta_data($handle);
       if ($mds['timed_out']) {
         throw new ExliteRPC_NetworkException('Timed out reading from '.$this->remote_url);
@@ -87,7 +93,7 @@ class ExliteRPC_Server {
     $data = @stream_get_contents($input);
 
     // Read failed?
-    if ($data === FALSE || $data === '') {
+    if ($data === FALSE) {
       $mds = stream_get_meta_data($input);
       if ($mds['timed_out']) {
         throw new ExliteRPC_NetworkException('Timed out reading from php://input');
@@ -119,8 +125,13 @@ class ExliteRPC_Server {
     }
   }
   
-  private function __stub($data) {    
-    list($name, $arguments) = @unserialize($data);
+  private function __stub($data) {
+    if (empty($data)) {
+      throw new ExliteRPC_ProtocolException('Request payload is empty');
+    }
+
+    $arguments = @unserialize($data);
+    $name = array_shift($arguments);
     
     if (method_exists($this->instance, $name) && $name{0} != '_') {
       $result = call_user_func_array(array($this->instance, $name), $arguments);
