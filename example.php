@@ -2,7 +2,7 @@
 // service.php
 require_once('exliterpc.php');
 
-$server = new ExliteRPC_Server(new helloworld(), 10, 'md5salt');
+$server = new ExliteRPC_Server(new helloworld(), 10, 'sha1salt');
 $server->handle();
 
 class helloworld {
@@ -18,7 +18,7 @@ class helloworld {
 // client.php
 require_once('exliterpc.php');
 
-$proxy = new ExliteRPC('http://localhost/service.php', 10, 'md5salt');
+$proxy = new ExliteRPC('http://localhost/service.php', 10, 'sha1salt');
 echo $proxy->hello();
 echo $proxy->eko('ok');
 */

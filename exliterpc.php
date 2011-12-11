@@ -3,50 +3,74 @@ class ExliteRPC_Exception extends Exception {};
 class ExliteRPC_NetworkException extends ExliteRPC_Exception {};
 class ExliteRPC_ProtocolException extends ExliteRPC_Exception {};
 
+// SERIALIZE: Don't allow PHP objects
+//
+function _exliterpc_verify_serialized_data_safe($data)
+{
+  while ($data) {
+    $parts = explode('s:', $data, 2);
+
+    if (strpos($parts[0], 'O:') !== FALSE)
+      return FALSE;
+    if (!isset($parts[1]))
+      break;
+
+    $pos = strpos($parts[1], ':');
+    if ($pos === FALSE)
+      return FALSE;
+
+    $len = substr($parts[1], 0, $pos);
+    $data = substr($parts[1], $pos+2+$len+2);
+  }
+
+  return TRUE;
+}
+
 class ExliteRPC {
   private $remote_url;
   private $timeout;
   private $salt_;
-  
+
   public function __construct($url, $timout = 0, $salt = '') {
     $this->remote_url = $url;
     $this->timeout = $timout;
     $this->salt_ = $salt;
   }
-  
+
   public function __call($name, $arguments) {
+    array_unshift($arguments, $name);
+
     $arguments = @serialize($arguments);
     $timestamp = time();
 
-    $data = pack('va*Va*V', strlen($name), $name, strlen($arguments), $arguments, $timestamp);
-    $data.= md5($data.$this->salt_, true);
+    $data = pack('Va*', $timestamp, $arguments);
+    $data = sha1($data.$this->salt_, true).$data;
 
     $data = $this->__rpc($data);
 
     if (empty($data)) {
       throw new ExliteRPC_ProtocolException('Response payload is empty');
     }
-    
-    $xpak = array();
-    $pos = 0;
-    $xpak['rlen'] = current(unpack('V_', substr($data, $pos, 4)));
-    $pos += 4;
-    $xpak['rval'] = substr($data, $pos, $xpak['rlen']);
-    $pos += $xpak['rlen'];
-    $xpak['tim'] = current(unpack('V_', substr($data, $pos, 4)));
-    $pos += 4;
-    $xpak['md5'] = substr($data, $pos, 8);
-    
-    if (strncmp(md5(substr($data, 0, $pos).$this->salt_, true), $xpak['md5'], 8)) {
-      throw new ExliteRPC_ProtocolException('Md5::salt verify of response failed');
+
+    $signat = substr($data, 0, 20);
+    $data = substr($data, 20);
+
+    if (strncmp(sha1($data.$this->salt_, true), $signat, 20)) {
+      throw new ExliteRPC_ProtocolException('sha1::salt verify of response failed');
     }
+
+    $xpak = unpack('Vtim/a*result', $data);
+
     if ($xpak['tim'] != $timestamp+1) {
       throw new ExliteRPC_ProtocolException('Timestamp verify of response failed');
     }
-    
-    return @unserialize($xpak['rval']);
+    if (!_exliterpc_verify_serialized_data_safe($xpak['result'])) {
+      throw new ExliteRPC_ProtocolException('Serialized data safety verify of response failed');
+    }
+
+    return @unserialize($xpak['result']);
   }
-  
+
   private function __rpc($data) {
     $matches = parse_url($this->remote_url);
 
@@ -89,7 +113,7 @@ class ExliteRPC {
         throw new ExliteRPC_NetworkException('Could not read from '.$this->remote_url);
       }
     }
-    
+
     return $data;
   }
 }
@@ -104,7 +128,7 @@ class ExliteRPC_Server {
     $this->timeout = $timout;
     $this->salt_ = $salt;
   }
-  
+
   public function handle() {
     $input = @fopen('php://input', 'r');
 
@@ -126,9 +150,9 @@ class ExliteRPC_Server {
         throw new ExliteRPC_NetworkException('Could not read from php://input');
       }
     }
-    
+
     $data = $this->__stub($data);
-    
+
     // Set header of Content-Type
     header('Content-Type: php/x-serialize');
 
@@ -140,7 +164,7 @@ class ExliteRPC_Server {
     if ($this->timeout > 0) {
       stream_set_timeout($output, $this->timeout);
     }
-    
+
     while (strlen($data) > 0) {
       $got = @fwrite($output, $data);
       if ($got === 0 || $got === FALSE) {
@@ -149,48 +173,43 @@ class ExliteRPC_Server {
       $data = substr($data, $got);
     }
   }
-  
+
   private function __stub($data) {
     if (empty($data)) {
       throw new ExliteRPC_ProtocolException('Request payload is empty');
     }
 
-    $xpak = array();
-    $pos = 0;
-    $xpak['nlen'] = current(unpack('v_', substr($data, $pos, 2)));
-    $pos += 2;
-    $xpak['name'] = substr($data, $pos, $xpak['nlen']);
-    $pos += $xpak['nlen'];
-    $xpak['alen'] = current(unpack('V_', substr($data, $pos, 4)));
-    $pos += 4;
-    $xpak['args'] = substr($data, $pos, $xpak['alen']);
-    $pos += $xpak['alen'];
-    $xpak['tim'] = current(unpack('V_', substr($data, $pos, 4)));
-    $pos += 4;
-    $xpak['md5'] = substr($data, $pos, 8);
-    
-    if (strncmp(md5(substr($data, 0, $pos).$this->salt_, true), $xpak['md5'], 8)) {
-      throw new ExliteRPC_ProtocolException('Md5::salt verify of request failed');
+    $signat = substr($data, 0, 20);
+    $data = substr($data, 20);
+
+    if (strncmp(sha1($data.$this->salt_, true), $signat, 20)) {
+      throw new ExliteRPC_ProtocolException('sha1::salt verify of request failed');
     }
+
+    $xpak = unpack('Vtim/a*args', $data);
+
     if (abs(time() - $xpak['tim']) >= 3600) {
       throw new ExliteRPC_ProtocolException('Timestamp verify of request failed');
     }
+    if (!_exliterpc_verify_serialized_data_safe($xpak['args'])) {
+      throw new ExliteRPC_ProtocolException('Serialized data safety verify of request failed');
+    }
 
-    $name = $xpak['name'];
     $arguments = @unserialize($xpak['args']);
-    
-    if (method_exists($this->instance, $name) && $name{0} != '_') {
+    $name = array_shift($arguments);
+
+    if (method_exists($this->instance, $name) && $name[0] != '_') {
       $result = call_user_func_array(array($this->instance, $name), $arguments);
     } elseif (method_exists($this->instance, '__call')) {
       $result = $this->instance->__call($name, $arguments);
     } else {
       throw new ExliteRPC_ProtocolException('Invalid method invoked of '.$name);
     }
-	
+
     $result = @serialize($result);
 
-    $data = pack('Va*V', strlen($result), $result, $xpak['tim']+1);
-    $data.= md5($data.$this->salt_, true);
+    $data = pack('Va*', $xpak['tim']+1, $result);
+    $data = sha1($data.$this->salt_, true).$data;
 
     return $data;
   }

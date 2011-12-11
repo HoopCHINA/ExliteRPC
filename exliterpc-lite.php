@@ -3,27 +3,62 @@ class ExliteRPC_Exception extends Exception {};
 class ExliteRPC_NetworkException extends ExliteRPC_Exception {};
 class ExliteRPC_ProtocolException extends ExliteRPC_Exception {};
 
+// SERIALIZE: Don't allow PHP objects
+//
+function _exliterpc_verify_serialized_data_safe($data)
+{
+  while ($data) {
+    $parts = explode('s:', $data, 2);
+
+    if (strpos($parts[0], 'O:') !== FALSE)
+      return FALSE;
+    if (!isset($parts[1]))
+      break;
+
+    $pos = strpos($parts[1], ':');
+    if ($pos === FALSE)
+      return FALSE;
+
+    $len = substr($parts[1], 0, $pos);
+    $data = substr($parts[1], $pos+2+$len+2);
+  }
+
+  return TRUE;
+}
+
 class ExliteRPC {
   private $remote_url;
   private $timeout;
-  
+
   public function __construct($url, $timout = 0) {
     $this->remote_url = $url;
     $this->timeout = $timout;
   }
-  
+
   public function __call($name, $arguments) {
     array_unshift($arguments, $name);
 
     $data = @serialize($arguments);
+    $data = pack('Va*', crc32($data), $data);
+
     $data = $this->__rpc($data);
 
     if (empty($data)) {
       throw new ExliteRPC_ProtocolException('Response payload is empty');
     }
-    return @unserialize($data);
+
+    $xpak = unpack('Vcrc/a*result', $data);
+
+    if ($xpak['crc'] != crc32($xpak['result'])) {
+      throw new ExliteRPC_ProtocolException('CRC32 verify of response failed');
+    }
+    if (!_exliterpc_verify_serialized_data_safe($xpak['result'])) {
+      throw new ExliteRPC_ProtocolException('Serialized data safety verify of response failed');
+    }
+
+    return @unserialize($xpak['result']);
   }
-  
+
   private function __rpc($data) {
     $matches = parse_url($this->remote_url);
 
@@ -66,7 +101,7 @@ class ExliteRPC {
         throw new ExliteRPC_NetworkException('Could not read from '.$this->remote_url);
       }
     }
-    
+
     return $data;
   }
 }
@@ -79,7 +114,7 @@ class ExliteRPC_Server {
     $this->instance = $instance;
     $this->timeout = $timout;
   }
-  
+
   public function handle() {
     $input = @fopen('php://input', 'r');
 
@@ -101,9 +136,9 @@ class ExliteRPC_Server {
         throw new ExliteRPC_NetworkException('Could not read from php://input');
       }
     }
-    
+
     $data = $this->__stub($data);
-    
+
     // Set header of Content-Type
     header('Content-Type: php/x-serialize');
 
@@ -115,7 +150,7 @@ class ExliteRPC_Server {
     if ($this->timeout > 0) {
       stream_set_timeout($output, $this->timeout);
     }
-    
+
     while (strlen($data) > 0) {
       $got = @fwrite($output, $data);
       if ($got === 0 || $got === FALSE) {
@@ -124,16 +159,25 @@ class ExliteRPC_Server {
       $data = substr($data, $got);
     }
   }
-  
+
   private function __stub($data) {
     if (empty($data)) {
       throw new ExliteRPC_ProtocolException('Request payload is empty');
     }
 
-    $arguments = @unserialize($data);
+    $xpak = unpack('Vcrc/a*args', $data);
+
+    if ($xpak['crc'] != crc32($xpak['args'])) {
+      throw new ExliteRPC_ProtocolException('CRC32 verify of request failed');
+    }
+    if (!_exliterpc_verify_serialized_data_safe($xpak['args'])) {
+      throw new ExliteRPC_ProtocolException('Serialized data safety verify of request failed');
+    }
+
+    $arguments = @unserialize($xpak['args']);
     $name = array_shift($arguments);
-    
-    if (method_exists($this->instance, $name) && $name{0} != '_') {
+
+    if (method_exists($this->instance, $name) && $name[0] != '_') {
       $result = call_user_func_array(array($this->instance, $name), $arguments);
     } elseif (method_exists($this->instance, '__call')) {
       $result = $this->instance->__call($name, $arguments);
@@ -141,6 +185,9 @@ class ExliteRPC_Server {
       throw new ExliteRPC_ProtocolException('Invalid method invoked of '.$name);
     }
 
-    return @serialize($result);
+    $result = @serialize($result);
+    $data = pack('Va*', crc32($result), $result);
+
+    return $data;
   }
 }

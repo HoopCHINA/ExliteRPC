@@ -10,7 +10,7 @@ Server side example
     // service.php
     require_once('exliterpc.php');
     
-    $server = new ExliteRPC_Server(new helloworld(), 10, 'md5salt');
+    $server = new ExliteRPC_Server(new helloworld(), 10, 'sha1salt');
     $server->handle();
     
     class helloworld {
@@ -29,14 +29,14 @@ Client side example
     // client.php
     require_once('exliterpc.php');
     
-    $proxy = new ExliteRPC('http://localhost/service.php', 10, 'md5salt');
+    $proxy = new ExliteRPC('http://localhost/service.php', 10, 'sha1salt');
     echo $proxy->hello();
     echo $proxy->eko('ok');
 
 About exliterpc-lite.php
 ------------------------
 
-This is more light version missing md5 verifing and signaturing features.
+This is more light version missing sha1 verifing and signaturing features.
 
 Credit
 ------

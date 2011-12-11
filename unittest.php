@@ -11,7 +11,7 @@ class helloworld {
 }
 
 if (isset($_GET['m']) && $_GET['m'] === 'server') {
-  $server = new ExliteRPC_Server(new helloworld(), 10, 'md5salt');
+  $server = new ExliteRPC_Server(new helloworld(), 10, 'sha1salt');
   $server->handle();
   exit;
 }
@@ -25,7 +25,7 @@ if ($resp !== FALSE) {
 }
 
 // Normal requests
-$proxy = new ExliteRPC($remote_url, 10, 'md5salt');
+$proxy = new ExliteRPC($remote_url, 10, 'sha1salt');
 try {
   $resp = $proxy->hello();
   if ($resp !== 'hello, world!') {
@@ -41,7 +41,7 @@ catch (ExliteRPC_Exception $e) {
 }
 
 // Nonexist method
-$proxy = new ExliteRPC($remote_url, 10, 'md5salt');
+$proxy = new ExliteRPC($remote_url, 10, 'sha1salt');
 try {
   $resp = $proxy->nonexist();
   echo 'FAILED: nonexist() case not reach'; exit;
@@ -53,7 +53,7 @@ catch (ExliteRPC_NetworkException $e) {
 }
 
 // Non exist remote url
-$proxy = new ExliteRPC('http://nonexist.uri/', 10, 'md5salt');
+$proxy = new ExliteRPC('http://nonexist.uri/', 10, 'sha1salt');
 try {
   $resp = $proxy->nonexist();
   echo 'FAILED: nonexist uri case not reach'; exit;
@@ -64,8 +64,8 @@ catch (ExliteRPC_NetworkException $e) {
   }
 }
 
-// MD5 salt wrong
-$proxy = new ExliteRPC($remote_url, 10, 'md5salt$wrong');
+// SHA1 salt wrong
+$proxy = new ExliteRPC($remote_url, 10, 'sha1salt$wrong');
 try {
   $resp = $proxy->hello();
   echo 'FAILED: wrong md5 salt case not reach'; exit;
