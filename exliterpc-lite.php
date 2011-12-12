@@ -45,9 +45,6 @@ class ExliteRPC
     if ($xpak['crc'] != crc32($xpak['result'])) {
       throw new ExliteRPC_ProtocolException('CRC32 verify of response failed');
     }
-    if (!_exliterpc_verify_serialized_data_safe($xpak['result'])) {
-      throw new ExliteRPC_ProtocolException('Serialized data safety verify of response failed');
-    }
 
     return @unserialize($xpak['result']);
   }
@@ -164,9 +161,6 @@ class ExliteRPC_Server
     if ($xpak['crc'] != crc32($xpak['args'])) {
       throw new ExliteRPC_ProtocolException('CRC32 verify of request failed');
     }
-    if (!_exliterpc_verify_serialized_data_safe($xpak['args'])) {
-      throw new ExliteRPC_ProtocolException('Serialized data safety verify of request failed');
-    }
 
     $arguments = @unserialize($xpak['args']);
     $name = array_shift($arguments);
@@ -184,49 +178,4 @@ class ExliteRPC_Server
 
     return $data;
   }
-}
-
-// SERIALIZE: Don't allow PHP objects except in $EXLITERPC_SAFE_CLASSES
-//
-function _exliterpc_verify_serialized_data_safe($data)
-{
-  global $EXLITERPC_SAFE_CLASSES;
-
-  if (isset($EXLITERPC_SAFE_CLASSES) && is_array($EXLITERPC_SAFE_CLASSES)) {
-    $safeclss = array();
-
-    foreach ($EXLITERPC_SAFE_CLASSES as $cls) {
-      $safeclss[] = implode(array('O:', strlen($cls), ':"', $cls, '"'));
-    }
-  }
-
-  while ($data) {
-    $parts = explode('s:', $data, 2);
-    $search = $parts[0];
-
-    if (strpos($search, 'O:') !== FALSE) {
-      if (empty($safeclss)) {
-        return FALSE;
-      }
-      if (strpos(str_ireplace($safeclss, '', $search), 'O:') !== FALSE) {
-        return FALSE;
-      }
-    }
-
-    if (empty($parts[1])) {
-      break;
-    }
-
-    $data = $parts[1];
-    $pos = strpos($data, ':');
-
-    if ($pos === FALSE) {
-      return FALSE;
-    }
-
-    $len = substr($data, 0, $pos);
-    $data = substr($data, $pos+2+$len+2);
-  }
-
-  return TRUE;
 }
