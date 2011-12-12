@@ -1,54 +1,25 @@
 <?php
+/* Copyright 2011 HoopCHINA, Co., Ltd.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 class ExliteRPC_Exception extends Exception {};
 class ExliteRPC_NetworkException extends ExliteRPC_Exception {};
 class ExliteRPC_ProtocolException extends ExliteRPC_Exception {};
 
-// SERIALIZE: Don't allow PHP objects except in $EXLITERPC_SAFE_CLASSES
-//
-function _exliterpc_verify_serialized_data_safe($data)
+class ExliteRPC
 {
-  global $EXLITERPC_SAFE_CLASSES;
-
-  if (isset($EXLITERPC_SAFE_CLASSES) && is_array($EXLITERPC_SAFE_CLASSES)) {
-    $safeclss = array();
-
-    foreach ($EXLITERPC_SAFE_CLASSES as $cls) {
-      $safeclss[] = implode(array('O:', strlen($cls), ':"', $cls, '"'));
-    }
-  }
-
-  while ($data) {
-    $parts = explode('s:', $data, 2);
-    $search = $parts[0];
-
-    if (strpos($search, 'O:') !== FALSE) {
-      if (empty($safeclss)) {
-        return FALSE;
-      }
-      if (strpos(str_ireplace($safeclss, '', $search), 'O:') !== FALSE) {
-        return FALSE;
-      }
-    }
-
-    if (empty($parts[1])) {
-      break;
-    }
-
-    $data = $parts[1];
-    $pos = strpos($data, ':');
-
-    if ($pos === FALSE) {
-      return FALSE;
-    }
-
-    $len = substr($data, 0, $pos);
-    $data = substr($data, $pos+2+$len+2);
-  }
-
-  return TRUE;
-}
-
-class ExliteRPC {
   private $remote_url;
   private $timeout;
 
@@ -128,7 +99,8 @@ class ExliteRPC {
   }
 }
 
-class ExliteRPC_Server {
+class ExliteRPC_Server
+{
   private $instance;
   private $timeout;
 
@@ -212,4 +184,49 @@ class ExliteRPC_Server {
 
     return $data;
   }
+}
+
+// SERIALIZE: Don't allow PHP objects except in $EXLITERPC_SAFE_CLASSES
+//
+function _exliterpc_verify_serialized_data_safe($data)
+{
+  global $EXLITERPC_SAFE_CLASSES;
+
+  if (isset($EXLITERPC_SAFE_CLASSES) && is_array($EXLITERPC_SAFE_CLASSES)) {
+    $safeclss = array();
+
+    foreach ($EXLITERPC_SAFE_CLASSES as $cls) {
+      $safeclss[] = implode(array('O:', strlen($cls), ':"', $cls, '"'));
+    }
+  }
+
+  while ($data) {
+    $parts = explode('s:', $data, 2);
+    $search = $parts[0];
+
+    if (strpos($search, 'O:') !== FALSE) {
+      if (empty($safeclss)) {
+        return FALSE;
+      }
+      if (strpos(str_ireplace($safeclss, '', $search), 'O:') !== FALSE) {
+        return FALSE;
+      }
+    }
+
+    if (empty($parts[1])) {
+      break;
+    }
+
+    $data = $parts[1];
+    $pos = strpos($data, ':');
+
+    if ($pos === FALSE) {
+      return FALSE;
+    }
+
+    $len = substr($data, 0, $pos);
+    $data = substr($data, $pos+2+$len+2);
+  }
+
+  return TRUE;
 }

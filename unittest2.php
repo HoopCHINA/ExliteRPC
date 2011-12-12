@@ -1,4 +1,5 @@
 <?php
+// Safe class config...
 $EXLITERPC_SAFE_CLASSES = array('DateTime', 'Person');
 
 require_once('exliterpc.php');
