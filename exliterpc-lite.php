@@ -14,11 +14,11 @@
    limitations under the License.
 */
 
-class ExliteRPC_Exception extends Exception {};
-class ExliteRPC_NetworkException extends ExliteRPC_Exception {};
-class ExliteRPC_ProtocolException extends ExliteRPC_Exception {};
+class ExliteRPC_Lite_Exception extends Exception {};
+class ExliteRPC_Lite_NetworkException extends ExliteRPC_Lite_Exception {};
+class ExliteRPC_Lite_ProtocolException extends ExliteRPC_Lite_Exception {};
 
-class ExliteRPC
+class ExliteRPC_Lite
 {
   private $remote_url;
   private $timeout;
@@ -37,13 +37,13 @@ class ExliteRPC
     $data = $this->__rpc($data);
 
     if (empty($data)) {
-      throw new ExliteRPC_ProtocolException('Response payload is empty');
+      throw new ExliteRPC_Lite_ProtocolException('Response payload is empty');
     }
 
     $xpak = unpack('Vcrc/a*result', $data);
 
     if ($xpak['crc'] != crc32($xpak['result'])) {
-      throw new ExliteRPC_ProtocolException('CRC32 verify of response failed');
+      throw new ExliteRPC_Lite_ProtocolException('CRC32 verify of response failed');
     }
 
     return @unserialize($xpak['result']);
@@ -55,7 +55,7 @@ class ExliteRPC
     if (isset($matches['host']))
       $host = $matches['host'];
     else {
-      throw new ExliteRPC_NetworkException('Invalid url format of '.$this->remote_url);
+      throw new ExliteRPC_Lite_NetworkException('Invalid url format of '.$this->remote_url);
     }
 
     $headers = array('Host: '.$host,
@@ -77,7 +77,7 @@ class ExliteRPC
 
     // Connect failed?
     if ($handle === FALSE) {
-      throw new ExliteRPC_NetworkException('Could not open '.$this->remote_url);
+      throw new ExliteRPC_Lite_NetworkException('Could not open '.$this->remote_url);
     }
 
     $data = @stream_get_contents($handle);
@@ -86,9 +86,9 @@ class ExliteRPC
     if ($data === FALSE) {
       $mds = stream_get_meta_data($handle);
       if ($mds['timed_out']) {
-        throw new ExliteRPC_NetworkException('Timed out reading from '.$this->remote_url);
+        throw new ExliteRPC_Lite_NetworkException('Timed out reading from '.$this->remote_url);
       } else {
-        throw new ExliteRPC_NetworkException('Could not read from '.$this->remote_url);
+        throw new ExliteRPC_Lite_NetworkException('Could not read from '.$this->remote_url);
       }
     }
 
@@ -96,7 +96,7 @@ class ExliteRPC
   }
 }
 
-class ExliteRPC_Server
+class ExliteRPC_Lite_Server
 {
   private $instance;
   private $timeout;
@@ -110,7 +110,7 @@ class ExliteRPC_Server
     $input = @fopen('php://input', 'r');
 
     if ($input === FALSE) {
-      throw new ExliteRPC_NetworkException('Could not open php://input');
+      throw new ExliteRPC_Lite_NetworkException('Could not open php://input');
     }
     if ($this->timeout > 0) {
       stream_set_timeout($input, $this->timeout);
@@ -122,9 +122,9 @@ class ExliteRPC_Server
     if ($data === FALSE) {
       $mds = stream_get_meta_data($input);
       if ($mds['timed_out']) {
-        throw new ExliteRPC_NetworkException('Timed out reading from php://input');
+        throw new ExliteRPC_Lite_NetworkException('Timed out reading from php://input');
       } else {
-        throw new ExliteRPC_NetworkException('Could not read from php://input');
+        throw new ExliteRPC_Lite_NetworkException('Could not read from php://input');
       }
     }
 
@@ -136,7 +136,7 @@ class ExliteRPC_Server
     $output = @fopen('php://output', 'w');
 
     if ($output === FALSE) {
-      throw new ExliteRPC_NetworkException('Could not open php://output');
+      throw new ExliteRPC_Lite_NetworkException('Could not open php://output');
     }
     if ($this->timeout > 0) {
       stream_set_timeout($output, $this->timeout);
@@ -145,7 +145,7 @@ class ExliteRPC_Server
     while (strlen($data) > 0) {
       $got = @fwrite($output, $data);
       if ($got === 0 || $got === FALSE) {
-        throw new ExliteRPC_NetworkException('Could not write to php://output');
+        throw new ExliteRPC_Lite_NetworkException('Could not write to php://output');
       }
       $data = substr($data, $got);
     }
@@ -153,13 +153,13 @@ class ExliteRPC_Server
 
   private function __stub($data) {
     if (empty($data)) {
-      throw new ExliteRPC_ProtocolException('Request payload is empty');
+      throw new ExliteRPC_Lite_ProtocolException('Request payload is empty');
     }
 
     $xpak = unpack('Vcrc/a*args', $data);
 
     if ($xpak['crc'] != crc32($xpak['args'])) {
-      throw new ExliteRPC_ProtocolException('CRC32 verify of request failed');
+      throw new ExliteRPC_Lite_ProtocolException('CRC32 verify of request failed');
     }
 
     $arguments = @unserialize($xpak['args']);
@@ -170,7 +170,7 @@ class ExliteRPC_Server
     } elseif (method_exists($this->instance, '__call')) {
       $result = $this->instance->__call($name, $arguments);
     } else {
-      throw new ExliteRPC_ProtocolException('Invalid method invoked of '.$name);
+      throw new ExliteRPC_Lite_ProtocolException('Invalid method invoked of '.$name);
     }
 
     $result = @serialize($result);

@@ -118,5 +118,5 @@ catch (ExliteRPC_NetworkException $e) {
     echo 'FAILED: wrong sha1::salt case'; exit;
   }
 }
-  
+
 echo 'OK';
