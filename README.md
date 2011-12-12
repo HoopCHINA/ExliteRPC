@@ -8,6 +8,8 @@ Server side example
 
     <?php
     // service.php
+    $EXLITERPC_SAFE_CLASSES = array('DateTime', 'Person');
+    
     require_once('exliterpc.php');
     
     $server = new ExliteRPC_Server(new helloworld(), 10, 'sha1salt');
@@ -27,6 +29,8 @@ Client side example
 
     <?php
     // client.php
+    $EXLITERPC_SAFE_CLASSES = array('DateTime', 'Person');
+    
     require_once('exliterpc.php');
     
     $proxy = new ExliteRPC('http://localhost/service.php', 10, 'sha1salt');

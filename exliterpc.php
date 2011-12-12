@@ -3,24 +3,46 @@ class ExliteRPC_Exception extends Exception {};
 class ExliteRPC_NetworkException extends ExliteRPC_Exception {};
 class ExliteRPC_ProtocolException extends ExliteRPC_Exception {};
 
-// SERIALIZE: Don't allow PHP objects
+// SERIALIZE: Don't allow PHP objects except in $EXLITERPC_SAFE_CLASSES
 //
 function _exliterpc_verify_serialized_data_safe($data)
 {
+  global $EXLITERPC_SAFE_CLASSES;
+
+  if (isset($EXLITERPC_SAFE_CLASSES) && is_array($EXLITERPC_SAFE_CLASSES)) {
+    $safeclss = array();
+
+    foreach ($EXLITERPC_SAFE_CLASSES as $cls) {
+      $safeclss[] = implode(array('O:', strlen($cls), ':"', $cls, '"'));
+    }
+  }
+
   while ($data) {
     $parts = explode('s:', $data, 2);
+    $search = $parts[0];
 
-    if (strpos($parts[0], 'O:') !== FALSE)
-      return FALSE;
-    if (!isset($parts[1]))
+    if (strpos($search, 'O:') !== FALSE) {
+      if (empty($safeclss)) {
+        return FALSE;
+      }
+      if (strpos(str_ireplace($safeclss, '', $search), 'O:') !== FALSE) {
+        return FALSE;
+      }
+    }
+
+    if (empty($parts[1])) {
       break;
+    }
 
-    $pos = strpos($parts[1], ':');
-    if ($pos === FALSE)
+    $data = $parts[1];
+    $pos = strpos($data, ':');
+
+    if ($pos === FALSE) {
       return FALSE;
+    }
 
-    $len = substr($parts[1], 0, $pos);
-    $data = substr($parts[1], $pos+2+$len+2);
+    $len = substr($data, 0, $pos);
+    $data = substr($data, $pos+2+$len+2);
   }
 
   return TRUE;
