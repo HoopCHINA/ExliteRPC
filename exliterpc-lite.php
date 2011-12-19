@@ -32,21 +32,13 @@ class ExliteRPC_Lite
     array_unshift($arguments, $name);
 
     $data = @serialize($arguments);
-    $data = pack('Va*', crc32($data), $data);
-
     $data = $this->__rpc($data);
 
     if (empty($data)) {
       throw new ExliteRPC_Lite_ProtocolException('Response payload is empty');
     }
 
-    $xpak = unpack('Vcrc/a*result', $data);
-
-    if ($xpak['crc'] != crc32($xpak['result'])) {
-      throw new ExliteRPC_Lite_ProtocolException('CRC32 verify of response failed');
-    }
-
-    return @unserialize($xpak['result']);
+    return @unserialize($data);
   }
 
   private function __rpc($data) {
@@ -156,13 +148,7 @@ class ExliteRPC_Lite_Server
       throw new ExliteRPC_Lite_ProtocolException('Request payload is empty');
     }
 
-    $xpak = unpack('Vcrc/a*args', $data);
-
-    if ($xpak['crc'] != crc32($xpak['args'])) {
-      throw new ExliteRPC_Lite_ProtocolException('CRC32 verify of request failed');
-    }
-
-    $arguments = @unserialize($xpak['args']);
+    $arguments = @unserialize($data);
     $name = array_shift($arguments);
 
     if (method_exists($this->instance, $name) && $name[0] != '_') {
@@ -173,8 +159,7 @@ class ExliteRPC_Lite_Server
       throw new ExliteRPC_Lite_ProtocolException('Invalid method invoked of '.$name);
     }
 
-    $result = @serialize($result);
-    $data = pack('Va*', crc32($result), $result);
+    $data = @serialize($result);
 
     return $data;
   }
