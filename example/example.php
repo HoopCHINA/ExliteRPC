@@ -2,7 +2,7 @@
 // service.php
 $EXLITERPC_SAFE_CLASSES = array('DateTime', 'Person');
 
-require_once('exliterpc.php');
+require_once('../exliterpc.php');
 
 $server = new ExliteRPC_Server(new helloworld(), 10, 'sha1salt');
 $server->handle();

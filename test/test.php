@@ -2,7 +2,7 @@
 // Safe class config...
 $EXLITERPC_SAFE_CLASSES = array('Person');
 
-require_once('exliterpc.php');
+require_once('../exliterpc.php');
 
 class Person {
   public $name;
